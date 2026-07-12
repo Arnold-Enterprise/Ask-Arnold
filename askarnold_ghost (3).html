@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ASK ARNOLD — AI Scheduling for Trades &amp; Service Businesses</title>
+<meta name="description" content="Arnold answers every call and text, checks your calendar, and books the job — while you're on the job. AI scheduling for HVAC, plumbing, electrical, and service businesses.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blackout:#0C0D09;
+  --olive:#6F7B46;
+  --sage:#A6B274;
+  --moss:#39412A;
+  --moss-dim:#252b1b;
+  --bone:#EDEBDF;
+  --bone-dim:#D9D6C4;
+  --amber:#D9A13B;
+  --ink:#1A1D12;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --disp:'Archivo',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{background:var(--blackout);color:var(--bone);font-family:var(--disp);overflow-x:hidden}
+::selection{background:var(--olive);color:var(--blackout)}
+
+/* ---------- grain ---------- */
+body::after{
+  content:'';position:fixed;inset:0;z-index:98;pointer-events:none;opacity:.05;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- custom cursor ---------- */
+#cursor{position:fixed;top:0;left:0;width:34px;height:34px;z-index:99;pointer-events:none;
+  transform:translate(-50%,-50%);transition:width .18s,height .18s;display:none}
+#cursor .ring{position:absolute;inset:0;border:1px solid var(--sage);border-radius:50%;transition:border-color .18s,inset .18s}
+#cursor .tick{position:absolute;background:var(--sage);transition:background .18s}
+#cursor .tick.n{top:-3px;left:50%;width:1px;height:7px;transform:translateX(-50%)}
+#cursor .tick.s{bottom:-3px;left:50%;width:1px;height:7px;transform:translateX(-50%)}
+#cursor .tick.e{right:-3px;top:50%;height:1px;width:7px;transform:translateY(-50%)}
+#cursor .tick.w{left:-3px;top:50%;height:1px;width:7px;transform:translateY(-50%)}
+#cursor .dot{position:absolute;top:50%;left:50%;width:3px;height:3px;background:var(--sage);border-radius:50%;transform:translate(-50%,-50%)}
+#cursor.lock{width:52px;height:52px}
+#cursor.lock .ring{border-color:var(--amber)}
+#cursor.lock .tick{background:var(--amber)}
+#cursor.lock .dot{background:var(--amber)}
+body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input{cursor:none}
+
+/* ---------- boot ---------- */
+#boot{position:fixed;inset:0;z-index:200;background:var(--blackout);display:flex;align-items:center;justify-content:center;
+  transition:opacity .6s ease,visibility .6s}
+#boot.done{opacity:0;visibility:hidden}
+#bootlog{font-family:var(--mono);font-size:13px;line-height:2.1;color:var(--olive);width:min(560px,86vw)}
+#bootlog .ln{opacity:0;white-space:pre-wrap}
+#bootlog .ln.on{opacity:1}
+#bootlog .ok{color:var(--sage)}
+#bootlog .amber{color:var(--amber)}
+#bootskip{position:absolute;bottom:34px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;
+  letter-spacing:.3em;color:var(--moss);background:none;border:none;text-transform:uppercase}
+#bootskip:hover{color:var(--sage)}
+
+/* ---------- contour canvas ---------- */
+#topo{position:fixed;inset:0;z-index:1;pointer-events:none}
+
+/* ---------- ambient background film (the entity watching) ---------- */
+#bgfilm{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
+  opacity:.22;filter:saturate(.85) contrast(1.08);pointer-events:none}
+#bgveil{position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 45%, transparent 30%, rgba(12,13,9,.75) 100%),
+    linear-gradient(to bottom, rgba(12,13,9,.55), rgba(12,13,9,.25) 40%, rgba(12,13,9,.65))}
+@media(prefers-reduced-motion:reduce){#bgfilm{display:none}}
+
+/* ---------- shared ---------- */
+.wrap{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,64px)}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.42em;text-transform:uppercase;color:var(--olive)}
+.rule{height:1px;background:var(--moss);border:none}
+a{color:inherit}
+button{font-family:inherit}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:1px solid var(--amber);outline-offset:3px}
+
+/* ---------- header ---------- */
+header{position:fixed;top:0;left:0;right:0;z-index:90;display:flex;justify-content:space-between;align-items:center;
+  padding:18px clamp(20px,4vw,44px);mix-blend-mode:normal;
+  background:linear-gradient(to bottom,rgba(12,13,9,.9),rgba(12,13,9,0));pointer-events:none}
+header .brand{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:.28em;font-size:13px;pointer-events:auto}
+header .brand svg{width:26px;height:26px;display:block}
+header .brand .a-white{color:var(--bone)}
+header .brand .a-olive{color:var(--sage)}
+header nav{pointer-events:auto}
+header nav a{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-decoration:none;color:var(--bone-dim);
+  text-transform:uppercase;padding:8px 0 8px 26px;transition:color .2s}
+header nav a:hover{color:var(--amber)}
+@media(max-width:640px){header nav a:not(.console-link){display:none}}
+
+/* ---------- hero ---------- */
+#hero{min-height:100svh;display:flex;flex-direction:column;justify-content:center;align-items:center;
+  position:relative;padding:110px 20px 70px;text-align:center}
+#mark{width:min(380px,62vw);height:auto;display:block;-webkit-tap-highlight-color:transparent}
+#mark .a-shape{fill:url(#gMetal);opacity:0}
+#mark .a-edge{fill:none;stroke:url(#gEdge);stroke-width:2.5;stroke-linejoin:round}
+#mark .head-plate{fill:var(--blackout);stroke:url(#gMetal);stroke-width:7;opacity:0}
+#mark .antenna{fill:url(#gMetal);opacity:0}
+#mark .eye{fill:var(--sage);opacity:0}
+#mark .lid{fill:var(--blackout);transform:scaleY(0);transform-box:fill-box;transform-origin:center top}
+#mark.awake .a-shape,#mark.awake .head-plate,#mark.awake .antenna{opacity:1;transition:opacity .8s ease}
+#mark.awake .eye{opacity:1;transition:opacity .4s ease .5s}
+#mark .head-g{transform-box:fill-box;transform-origin:center}
+#mark.bounce .head-g{animation:hbounce .7s cubic-bezier(.34,1.56,.64,1)}
+@keyframes hbounce{0%{transform:translateY(0)}30%{transform:translateY(-16px) rotate(-3deg)}60%{transform:translateY(2px) rotate(2deg)}100%{transform:translateY(0)}}
+#hero h1{font-weight:900;font-size:clamp(42px,8.5vw,104px);letter-spacing:.14em;margin-top:34px;line-height:1;text-indent:.14em}
+#hero h1 .ask{color:var(--bone)}
+#hero h1 .arnold{color:transparent;background:linear-gradient(160deg,var(--sage) 10%,var(--olive) 55%,var(--moss) 100%);
+  -webkit-background-clip:text;background-clip:text}
+#hero h1 span.w{display:inline-block;opacity:0;transform:translateY(26px)}
+#hero h1.in span.w{opacity:1;transform:none;transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+#hero h1.in span.w:nth-child(2){transition-delay:.12s}
+#hero .sub{margin-top:22px;font-family:var(--mono);font-size:12px;letter-spacing:.34em;color:var(--olive);text-transform:uppercase;
+  opacity:0;transition:opacity 1s ease .5s}
+#hero .sub.in{opacity:1}
+#status{display:inline-flex;align-items:center;gap:10px;margin-top:16px;font-family:var(--mono);font-size:11px;
+  letter-spacing:.3em;color:var(--bone-dim);text-transform:uppercase;opacity:0;transition:opacity 1s ease .8s}
+#status.in{opacity:1}
+#status .pip{width:7px;height:7px;border-radius:50%;background:var(--amber);box-shadow:0 0 10px var(--amber);
+  animation:pulse 2.4s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+#hero .scrollcue{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);font-family:var(--mono);
+  font-size:10px;letter-spacing:.4em;color:var(--moss);text-transform:uppercase;display:flex;flex-direction:column;align-items:center;gap:10px}
+#hero .scrollcue::after{content:'';width:1px;height:36px;background:linear-gradient(var(--moss),transparent);
+  animation:drip 2.2s ease-in-out infinite}
+@keyframes drip{0%{transform:scaleY(0);transform-origin:top}45%{transform:scaleY(1);transform-origin:top}55%{transform:scaleY(1);transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+/* ---------- transmission ---------- */
+#transmission{padding:22vh 0 24vh;position:relative}
+#transmission .tag{display:flex;align-items:center;gap:18px;margin-bottom:8vh}
+#transmission .tag .rule{flex:1}
+.bigline{font-weight:900;font-size:clamp(30px,5.6vw,72px);line-height:1.12;letter-spacing:.015em;
+  text-transform:uppercase;max-width:19ch}
+.bigline+.bigline{margin-top:7vh}
+.bigline .w{display:inline-block;opacity:.06;transform:translateY(.35em);transition:opacity .7s ease,transform .7s cubic-bezier(.2,.8,.2,1)}
+.bigline.in .w{opacity:1;transform:none}
+.bigline .olv{color:transparent;background:linear-gradient(150deg,var(--sage),var(--olive));-webkit-background-clip:text;background-clip:text}
+.bigline .dim{color:var(--moss)}
+#transmission .footnote{margin-top:9vh;font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--bone-dim);
+  max-width:52ch;border-left:1px solid var(--moss);padding-left:22px}
+
+/* ---------- field manual (bone/paper) ---------- */
+#manual{position:relative;z-index:2;background:var(--bone);color:var(--ink);padding:12vh 0 13vh}
+#manual::before,#manual::after{content:'';position:absolute;left:0;right:0;height:10px;
+  background-image:repeating-linear-gradient(90deg,var(--olive) 0 26px,transparent 26px 42px)}
+#manual::before{top:0}
+#manual::after{bottom:0}
+#manual .eyebrow{color:var(--olive)}
+#manual h2{font-weight:900;font-size:clamp(30px,4.6vw,58px);letter-spacing:.05em;text-transform:uppercase;margin:14px 0 8vh}
+#manual h2 .stamp{display:inline-block;color:var(--olive);border:3px solid var(--olive);padding:.04em .22em;
+  transform:rotate(-2deg);margin-left:.25em}
+.plate{position:relative;border:2px solid var(--ink);padding:clamp(26px,4vw,46px);background:var(--bone);
+  box-shadow:6px 6px 0 var(--olive)}
+.plate .rivet{position:absolute;width:10px;height:10px;border-radius:50%;border:2px solid var(--ink);background:var(--bone-dim)}
+.plate .rivet.tl{top:10px;left:10px}.plate .rivet.tr{top:10px;right:10px}
+.plate .rivet.bl{bottom:10px;left:10px}.plate .rivet.br{bottom:10px;right:10px}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:0;border-top:1px solid var(--ink)}
+.spec{padding:20px 22px 22px 0;border-bottom:1px solid var(--ink)}
+.spec dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.32em;text-transform:uppercase;color:var(--olive);margin-bottom:9px}
+.spec dd{font-weight:600;font-size:16.5px;letter-spacing:.02em}
+.duties{margin-top:9vh;display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2px;background:var(--ink);
+  border:2px solid var(--ink)}
+.duty{background:var(--bone);padding:30px 26px 34px;position:relative;transition:background .25s}
+.duty:hover{background:#E4E1CE}
+.duty .code{font-family:var(--mono);font-size:10.5px;letter-spacing:.3em;color:var(--olive)}
+.duty h3{font-weight:900;font-size:23px;letter-spacing:.06em;margin:12px 0 12px;text-transform:uppercase}
+.duty p{font-size:14.5px;line-height:1.75;color:#3d4030}
+.duty .mark-corner{position:absolute;top:16px;right:16px;width:15px;height:15px;border-top:2px solid var(--olive);
+  border-right:2px solid var(--olive);opacity:0;transform:translate(-6px,6px);transition:.25s}
+.duty:hover .mark-corner{opacity:1;transform:none}
+
+/* ---------- console ---------- */
+#console-sec{padding:14vh 0 16vh;position:relative}
+#console-sec .tag{display:flex;align-items:center;gap:18px;margin-bottom:26px}
+#console-sec .tag .rule{flex:1}
+#console-sec h2{font-weight:900;font-size:clamp(28px,4.4vw,54px);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px}
+#console-sec .lede{font-family:var(--mono);font-size:12.5px;color:var(--bone-dim);letter-spacing:.06em;line-height:2;margin-bottom:44px;max-width:56ch}
+#terminal{border:1px solid var(--moss);background:rgba(18,20,12,.82);backdrop-filter:blur(6px);
+  box-shadow:0 30px 80px -30px rgba(0,0,0,.8)}
+#term-head{display:flex;align-items:center;gap:14px;padding:14px 18px;border-bottom:1px solid var(--moss)}
+#term-head .avatar{width:40px;height:40px;flex:none}
+#term-head .idline{font-family:var(--mono);font-size:11px;letter-spacing:.24em;text-transform:uppercase;color:var(--sage)}
+#term-head .idline small{display:block;color:var(--moss);letter-spacing:.2em;font-size:10px;margin-top:3px}
+#term-head .live{margin-left:auto;display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;
+  letter-spacing:.26em;color:var(--bone-dim)}
+#term-head .live .pip{width:6px;height:6px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);animation:pulse 2.4s infinite}
+#feed{height:min(430px,56vh);overflow-y:auto;padding:26px 22px;display:flex;flex-direction:column;gap:20px;
+  scrollbar-width:thin;scrollbar-color:var(--moss) transparent}
+#feed::-webkit-scrollbar{width:5px}
+#feed::-webkit-scrollbar-thumb{background:var(--moss)}
+.msg{max-width:78%;font-size:14px;line-height:1.8}
+.msg .who{font-family:var(--mono);font-size:9.5px;letter-spacing:.32em;text-transform:uppercase;margin-bottom:7px;color:var(--moss)}
+.msg.arnold{align-self:flex-start}
+.msg.arnold .body{color:var(--bone);font-family:var(--mono);font-size:13.5px;border-left:2px solid var(--olive);padding-left:16px;white-space:pre-wrap}
+.msg.arnold .who{color:var(--olive)}
+.msg.user{align-self:flex-end;text-align:right}
+.msg.user .body{display:inline-block;background:var(--moss-dim);border:1px solid var(--moss);padding:12px 16px;text-align:left;white-space:pre-wrap}
+.msg.sys .body{font-family:var(--mono);font-size:11px;color:var(--amber);letter-spacing:.14em}
+#thinking{display:none;align-self:flex-start;font-family:var(--mono);font-size:11px;letter-spacing:.3em;color:var(--olive);
+  padding-left:18px}
+#thinking.on{display:block}
+#thinking .d{display:inline-block;animation:dtick 1.2s infinite}
+#thinking .d:nth-child(2){animation-delay:.2s}
+#thinking .d:nth-child(3){animation-delay:.4s}
+@keyframes dtick{0%,60%,100%{opacity:.2}30%{opacity:1}}
+#chips{display:flex;flex-wrap:wrap;gap:10px;padding:0 22px 18px}
+.chip{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--sage);background:none;
+  border:1px solid var(--moss);padding:9px 15px;transition:.2s}
+.chip:hover{border-color:var(--sage);color:var(--bone);background:var(--moss-dim)}
+#inbar{display:flex;border-top:1px solid var(--moss)}
+#inbar .prompt-mark{font-family:var(--mono);color:var(--olive);padding:0 0 0 18px;display:flex;align-items:center;font-size:14px}
+#q{flex:1;background:none;border:none;outline:none;color:var(--bone);font-family:var(--mono);font-size:14px;
+  padding:19px 14px;letter-spacing:.02em}
+#q::placeholder{color:var(--moss)}
+#send{background:var(--olive);color:var(--blackout);border:none;font-family:var(--mono);font-weight:600;
+  font-size:11px;letter-spacing:.28em;padding:0 28px;text-transform:uppercase;transition:background .2s}
+#send:hover{background:var(--sage)}
+#send:disabled{background:var(--moss);color:var(--moss-dim)}
+
+/* mini avatar (console + header) */
+.avatar .eye{fill:var(--sage)}
+.avatar .plate{fill:var(--blackout);stroke:var(--olive);stroke-width:8}
+.avatar .ant{fill:var(--olive)}
+.avatar.think .eye{animation:dart 1s infinite}
+@keyframes dart{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.avatar .eye{transform-box:fill-box;transform-origin:center}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--moss);padding:52px 0 60px;position:relative;z-index:2}
+footer .wrap{display:flex;flex-wrap:wrap;gap:28px;align-items:center;justify-content:space-between}
+footer .stampline{font-family:var(--mono);font-size:10.5px;letter-spacing:.3em;color:var(--moss);text-transform:uppercase;line-height:2.2}
+footer .brandline{display:flex;align-items:center;gap:12px;font-weight:900;letter-spacing:.26em;font-size:13px}
+footer .brandline svg{width:24px;height:24px}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+  html{scroll-behavior:auto}
+}
+@media(max-width:640px){
+  .msg{max-width:92%}
+  #send{padding:0 18px}
+  .bigline{max-width:none}
+}
+</style>
+</head>
+<body>
+
+<!-- ============ SVG DEFS (shared A-mark symbol) ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="gMetal" x1="0%" y1="0%" x2="85%" y2="100%">
+      <stop offset="0%" stop-color="#A6B274"/>
+      <stop offset="48%" stop-color="#6F7B46"/>
+      <stop offset="100%" stop-color="#454F2C"/>
+    </linearGradient>
+    <linearGradient id="gEdge" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#C9D49A"/>
+      <stop offset="100%" stop-color="#39412A"/>
+    </linearGradient>
+    <symbol id="amark-mini" viewBox="0 0 600 600">
+      <path fill="currentColor" d="M300 58 L512 528 L422 528 L300 252 L178 528 L88 528 Z"/>
+      <g>
+        <rect x="258" y="332" width="16" height="34" rx="8" fill="currentColor"/>
+        <rect x="326" y="332" width="16" height="34" rx="8" fill="currentColor"/>
+        <path d="M244 360 h112 a26 26 0 0 1 26 26 v78 a26 26 0 0 1 -26 26 h-14 a14 14 0 0 1 -13-9 a14 14 0 0 0-13-9 h-32 a14 14 0 0 0-13 9 a14 14 0 0 1 -13 9 h-14 a26 26 0 0 1 -26-26 v-78 a26 26 0 0 1 26-26 Z"
+          fill="#0C0D09" stroke="currentColor" stroke-width="13"/>
+        <circle cx="273" cy="416" r="14" fill="currentColor"/>
+        <circle cx="327" cy="416" r="14" fill="currentColor"/>
+      </g>
+    </symbol>
+  </defs>
+</svg>
+
+<!-- ============ BOOT ============ -->
+<div id="boot" role="status" aria-label="Arnold is starting up">
+  <div id="bootlog"></div>
+  <button id="bootskip" data-hover>tap to skip</button>
+</div>
+
+<!-- ============ CURSOR ============ -->
+<div id="cursor" aria-hidden="true">
+  <div class="ring"></div>
+  <div class="tick n"></div><div class="tick s"></div><div class="tick e"></div><div class="tick w"></div>
+  <div class="dot"></div>
+</div>
+
+<video id="bgfilm" src="arnold-loop.mp4" muted autoplay loop playsinline preload="auto" aria-hidden="true"></video>
+<div id="bgveil" aria-hidden="true"></div>
+<canvas id="topo" aria-hidden="true"></canvas>
+
+<!-- ============ HEADER ============ -->
+<header>
+  <div class="brand">
+    <svg viewBox="0 0 600 600" style="color:#6F7B46"><use href="#amark-mini"/></svg>
+    <span><span class="a-white">ASK</span> <span class="a-olive">ARNOLD</span></span>
+  </div>
+  <nav>
+    <a href="#transmission" data-hover>Briefing</a>
+    <a href="#manual" data-hover>Field Manual</a>
+    <a href="#console-sec" class="console-link" data-hover>Live Demo</a>
+  </nav>
+</header>
+
+<!-- ============ HERO ============ -->
+<section id="hero">
+  <svg id="mark" viewBox="0 0 600 600" role="img" aria-label="Ask Arnold emblem — an olive A with a scheduling bot face" data-hover>
+    <path class="a-edge" id="aEdge" d="M300 58 L512 528 L422 528 L300 252 L178 528 L88 528 Z"/>
+    <path class="a-shape" d="M300 58 L512 528 L422 528 L300 252 L178 528 L88 528 Z"/>
+    <g class="head-g" id="headG">
+      <rect class="antenna" x="256" y="326" width="18" height="38" rx="9"/>
+      <rect class="antenna" x="326" y="326" width="18" height="38" rx="9"/>
+      <path class="head-plate" d="M242 356 h116 a28 28 0 0 1 28 28 v82 a28 28 0 0 1 -28 28 h-15 a15 15 0 0 1 -14-9.5 a15 15 0 0 0 -14-9.5 h-26 a15 15 0 0 0 -14 9.5 a15 15 0 0 1 -14 9.5 h-15 a28 28 0 0 1 -28-28 v-82 a28 28 0 0 1 28-28 Z"/>
+      <g id="eyeL"><circle class="eye" cx="272" cy="416" r="15"/></g>
+      <g id="eyeR"><circle class="eye" cx="328" cy="416" r="15"/></g>
+      <rect class="lid" id="lidL" x="250" y="396" width="44" height="42" rx="21"/>
+      <rect class="lid" id="lidR" x="306" y="396" width="44" height="42" rx="21"/>
+    </g>
+  </svg>
+
+  <h1 id="heroTitle" aria-label="Ask Arnold">
+    <span class="w ask">ASK</span> <span class="w arnold">ARNOLD</span>
+  </h1>
+  <p class="sub" id="heroSub">AI Scheduling &amp; Dispatch — Every Call, Every Time</p>
+  <div id="status"><span class="pip"></span><span id="statusText">Online — booking jobs right now</span></div>
+
+  <div class="scrollcue">Proceed</div>
+</section>
+
+<!-- ============ TRANSMISSION ============ -->
+<section id="transmission">
+  <div class="wrap">
+    <div class="tag">
+      <span class="eyebrow">Transmission 01 / Briefing</span>
+      <hr class="rule">
+      <span class="eyebrow">Sig. AA-26</span>
+    </div>
+
+    <h2 class="bigline" data-split>Most calls <span class="dim">go unanswered.</span></h2>
+    <h2 class="bigline" data-split><span class="olv">Arnold picks up every one.</span></h2>
+    <h2 class="bigline" data-split>Text comes in. <span class="dim">He checks the calendar, offers a time —</span> <span class="olv">job's booked in seconds.</span></h2>
+
+    <p class="footnote">Arnold answers texts and calls for trades and service businesses —
+HVAC, plumbing, electrical, and beyond. He checks real availability,
+books the appointment, sends the confirmation, and follows up so
+nothing falls through the cracks. No app for the customer. No new
+software for you. Scroll down and watch him work.</p>
+  </div>
+</section>
+
+<!-- ============ FIELD MANUAL ============ -->
+<section id="manual">
+  <div class="wrap">
+    <span class="eyebrow">Field Manual · Doc FM-01</span>
+    <h2>Know your <span class="stamp">unit</span></h2>
+
+    <div class="plate">
+      <span class="rivet tl"></span><span class="rivet tr"></span><span class="rivet bl"></span><span class="rivet br"></span>
+      <dl class="specs">
+        <div class="spec"><dt>Designation</dt><dd>ARNOLD MK.I</dd></div>
+        <div class="spec"><dt>Class</dt><dd>AI Scheduling &amp; Dispatch</dd></div>
+        <div class="spec"><dt>Deployed for</dt><dd>HVAC · Plumbing · Electrical · Trades</dd></div>
+        <div class="spec"><dt>Response time</dt><dd>Seconds, not voicemail</dd></div>
+        <div class="spec"><dt>Known weakness</dt><dd>Cannot swing a hammer. Yet.</dd></div>
+        <div class="spec"><dt>Shift</dt><dd>24 / 7 / 365</dd></div>
+      </dl>
+    </div>
+
+    <div class="duties">
+      <div class="duty" data-hover>
+        <span class="mark-corner"></span>
+        <span class="code">DUTY / INTAKE</span>
+        <h3>Answering</h3>
+        <p>A text lands any hour, any day. Arnold reads it, figures out what service is needed, and responds before the customer even sets the phone down.</p>
+      </div>
+      <div class="duty" data-hover>
+        <span class="mark-corner"></span>
+        <span class="code">DUTY / DISPATCH</span>
+        <h3>Booking</h3>
+        <p>Real availability, pulled straight from the calendar you already use. Arnold offers open slots and locks in the job the moment it's confirmed.</p>
+      </div>
+      <div class="duty" data-hover>
+        <span class="mark-corner"></span>
+        <span class="code">DUTY / FOLLOW-UP</span>
+        <h3>Reminders</h3>
+        <p>24 hours out, then 2 hours out — Arnold sends the reminder so the customer shows up and the crew's day doesn't fall apart.</p>
+      </div>
+      <div class="duty" data-hover>
+        <span class="mark-corner"></span>
+        <span class="code">DUTY / RECOVERY</span>
+        <h3>No-Shows</h3>
+        <p>Someone misses their slot, Arnold reaches back out and gets it rebooked — instead of that job just quietly disappearing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ CONSOLE ============ -->
+<section id="console-sec">
+  <div class="wrap">
+    <div class="tag">
+      <span class="eyebrow">Transmission 02 / Live Channel</span>
+      <hr class="rule">
+      <span class="eyebrow">Encrypted · Direct</span>
+    </div>
+    <h2>The Console</h2>
+    <p class="lede">This is not a demo reel. It's a live line to Arnold himself.
+Ask him about pricing, how booking works, or what he'd say to your
+customers — right here, right now.</p>
+
+    <div id="terminal">
+      <div id="term-head">
+        <svg class="avatar" id="miniAvatar" viewBox="0 0 200 170" aria-hidden="true">
+          <rect class="ant" x="52" y="6" width="14" height="30" rx="7"/>
+          <rect class="ant" x="134" y="6" width="14" height="30" rx="7"/>
+          <rect class="plate" x="18" y="30" width="164" height="126" rx="30"/>
+          <circle class="eye" cx="72" cy="92" r="15"/>
+          <circle class="eye" cx="128" cy="92" r="15"/>
+        </svg>
+        <div class="idline">Arnold MK.I<small>Direct channel · No queue</small></div>
+        <div class="live"><span class="pip"></span>LIVE</div>
+      </div>
+
+      <div id="feed">
+        <div class="msg arnold">
+          <div class="who">Arnold</div>
+          <div class="body">Channel open. I'm Arnold.
+
+I answer calls and texts for trades businesses so you don't have to. Ask me how it works, what it costs, or hand me a fake customer message and I'll show you.</div>
+        </div>
+        <div id="thinking"><span class="d">■</span> <span class="d">■</span> <span class="d">■</span></div>
+      </div>
+
+      <div id="chips">
+        <button class="chip" data-hover>How fast do you actually respond?</button>
+        <button class="chip" data-hover>What does this cost per month?</button>
+        <button class="chip" data-hover>"My AC broke, do you have anyone today?"</button>
+        <button class="chip" data-hover>What if I already use a scheduler?</button>
+      </div>
+
+      <div id="inbar">
+        <span class="prompt-mark">&gt;</span>
+        <input id="q" type="text" placeholder="Ask Arnold…" autocomplete="off" maxlength="600" aria-label="Ask Arnold a question" data-hover>
+        <button id="send" data-hover>Send</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap">
+    <div class="brandline">
+      <svg viewBox="0 0 600 600" style="color:#6F7B46"><use href="#amark-mini"/></svg>
+      <span><span style="color:var(--bone)">ASK</span> <span style="color:var(--sage)">ARNOLD</span></span>
+    </div>
+    <div class="stampline">Unit 01 · Field-issued 2026<br>Proven. Precise. Performing. Over.<br>
+<a href="privacy.html" style="color:var(--moss);text-decoration:none">Privacy</a> &middot; <a href="terms.html" style="color:var(--moss);text-decoration:none">Terms</a></div>
+  </div>
+</footer>
+
+<script>
+/* =================================================================
+   ASK ARNOLD — one continuous character, four systems:
+   boot · living mark · terrain · console
+================================================================= */
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isTouch = window.matchMedia('(pointer: coarse)').matches;
+
+/* ---------- 0 · AMBIENT FILM (the entity in the background) ---------- */
+const bgfilm = document.getElementById('bgfilm');
+if (reduceMotion){
+  bgfilm.remove();
+} else {
+  bgfilm.playbackRate = 0.55;                 // slow, hypnotic drift
+  const tryPlay = ()=>{ const p = bgfilm.play(); if (p && p.catch) p.catch(()=>{}); };
+  tryPlay();
+  // some browsers only allow playback after first interaction — retry then
+  document.addEventListener('pointerdown', tryPlay, {once:true});
+  document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) tryPlay(); });
+}
+
+/* ---------- 1 · BOOT SEQUENCE ---------- */
+const bootEl = document.getElementById('boot');
+const logEl  = document.getElementById('bootlog');
+const bootLines = [
+  ['ARNOLD OS v2.6 — cold start', ''],
+  ['loading calendar sync .............. <span class="ok">OK</span>', ''],
+  ['calibrating optics ................. <span class="ok">OK</span>', ''],
+  ['sense of humor ..................... <span class="ok">DRY</span>', ''],
+  ['coffee module ...................... <span class="amber">NOT FOUND</span>', ''],
+  ['proceeding anyway.', ''],
+  ['<span class="ok">ARNOLD IS AWAKE. STANDING BY FOR CALLS.</span>', '']
+];
+let bootDone = false;
+function finishBoot(){
+  if (bootDone) return;
+  bootDone = true;
+  bootEl.classList.add('done');
+  setTimeout(()=>bootEl.remove(), 700);
+  wakeHero();
+}
+function runBoot(){
+  if (reduceMotion){ finishBoot(); return; }
+  let i = 0;
+  const step = ()=>{
+    if (bootDone) return;
+    if (i >= bootLines.length){ setTimeout(finishBoot, 550); return; }
+    const div = document.createElement('div');
+    div.className = 'ln';
+    div.innerHTML = bootLines[i][0];
+    logEl.appendChild(div);
+    requestAnimationFrame(()=>div.classList.add('on'));
+    i++;
+    setTimeout(step, i === bootLines.length ? 500 : 260);
+  };
+  step();
+}
+document.getElementById('bootskip').addEventListener('click', finishBoot);
+bootEl.addEventListener('click', e=>{ if (e.target === bootEl) finishBoot(); });
+runBoot();
+
+/* ---------- 2 · THE LIVING MARK ---------- */
+const mark   = document.getElementById('mark');
+const aEdge  = document.getElementById('aEdge');
+const eyeL   = document.getElementById('eyeL');
+const eyeR   = document.getElementById('eyeR');
+const lidL   = document.getElementById('lidL');
+const lidR   = document.getElementById('lidR');
+const headG  = document.getElementById('headG');
+const heroTitle = document.getElementById('heroTitle');
+const heroSub   = document.getElementById('heroSub');
+const statusEl  = document.getElementById('status');
+const statusText= document.getElementById('statusText');
+
+/* draw the A edge, then wake */
+const edgeLen = aEdge.getTotalLength();
+aEdge.style.strokeDasharray = edgeLen;
+aEdge.style.strokeDashoffset = edgeLen;
+
+function wakeHero(){
+  if (reduceMotion){
+    aEdge.style.strokeDashoffset = 0;
+    mark.classList.add('awake');
+    heroTitle.classList.add('in');
+    heroSub.classList.add('in');
+    statusEl.classList.add('in');
+    startBlinking();
+    return;
+  }
+  aEdge.style.transition = 'stroke-dashoffset 1.4s cubic-bezier(.4,0,.2,1)';
+  requestAnimationFrame(()=>{ aEdge.style.strokeDashoffset = 0; });
+  setTimeout(()=>{
+    mark.classList.add('awake');
+    heroTitle.classList.add('in');
+    heroSub.classList.add('in');
+    statusEl.classList.add('in');
+    setTimeout(()=>{ blink(); startBlinking(); }, 900);
+  }, 1000);
+}
+
+/* blinking */
+let blinkTimer = null;
+function blink(){
+  [lidL,lidR].forEach(l=>{
+    l.style.transition = 'transform .09s ease-in';
+    l.style.transform = 'scaleY(1)';
+  });
+  setTimeout(()=>{
+    [lidL,lidR].forEach(l=>{
+      l.style.transition = 'transform .14s ease-out';
+      l.style.transform = 'scaleY(0)';
+    });
+  }, 110);
+}
+function wink(){
+  lidR.style.transition = 'transform .1s ease-in';
+  lidR.style.transform = 'scaleY(1)';
+  setTimeout(()=>{
+    lidR.style.transition = 'transform .16s ease-out';
+    lidR.style.transform = 'scaleY(0)';
+  }, 260);
+}
+function startBlinking(){
+  const loop = ()=>{
+    blinkTimer = setTimeout(()=>{ blink(); loop(); }, 2200 + Math.random()*3800);
+  };
+  loop();
+}
+
+/* eyes follow the cursor (or wander on touch) */
+let targetX = 0, targetY = 0, curX = 0, curY = 0;
+if (!isTouch){
+  window.addEventListener('pointermove', e=>{
+    const r = mark.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height*0.69;
+    const dx = e.clientX - cx, dy = e.clientY - cy;
+    const d  = Math.hypot(dx,dy) || 1;
+    const reach = 6.5;
+    targetX = (dx/d) * Math.min(reach, d/40);
+    targetY = (dy/d) * Math.min(reach*0.8, d/50);
+  }, {passive:true});
+} else {
+  setInterval(()=>{
+    targetX = (Math.random()*2-1)*5;
+    targetY = (Math.random()*2-1)*3;
+  }, 2600);
+}
+(function eyeLoop(){
+  curX += (targetX-curX)*0.12;
+  curY += (targetY-curY)*0.12;
+  const t = `translate(${curX.toFixed(2)}px, ${curY.toFixed(2)}px)`;
+  eyeL.style.transform = t;
+  eyeR.style.transform = t;
+  requestAnimationFrame(eyeLoop);
+})();
+
+/* three taps → Arnold approves */
+let taps = 0, tapReset = null;
+mark.addEventListener('click', ()=>{
+  taps++;
+  clearTimeout(tapReset);
+  tapReset = setTimeout(()=>taps=0, 1400);
+  if (taps >= 3){
+    taps = 0;
+    mark.classList.remove('bounce');
+    void mark.offsetWidth;
+    mark.classList.add('bounce');
+    wink();
+    const prev = statusText.textContent;
+    statusText.textContent = 'Arnold appreciates the attention';
+    setTimeout(()=>{ statusText.textContent = prev; }, 2600);
+  }
+});
+
+/* ---------- 3 · TERRAIN (topographic contours) ---------- */
+const topo = document.getElementById('topo');
+const tctx = topo.getContext('2d');
+let tw, th, dpr;
+function sizeTopo(){
+  dpr = Math.min(window.devicePixelRatio||1, 2);
+  tw = topo.width  = innerWidth * dpr;
+  th = topo.height = innerHeight * dpr;
+  topo.style.width = innerWidth+'px';
+  topo.style.height= innerHeight+'px';
+}
+sizeTopo();
+window.addEventListener('resize', sizeTopo);
+let phase = 0;
+function drawTopo(){
+  tctx.clearRect(0,0,tw,th);
+  const cx = tw*0.5, cy = th*0.46;
+  const rings = 15;
+  const maxR = Math.hypot(tw,th)*0.62;
+  for (let i=1;i<=rings;i++){
+    const base = (i/rings)*maxR;
+    tctx.beginPath();
+    for (let a=0;a<=Math.PI*2+0.05;a+=0.045){
+      const wob = Math.sin(a*3 + phase + i*0.9)*base*0.06
+                + Math.sin(a*7 - phase*0.6 + i*1.7)*base*0.025;
+      const r = base + wob;
+      const x = cx + Math.cos(a)*r;
+      const y = cy + Math.sin(a)*r*0.86;
+      a===0 ? tctx.moveTo(x,y) : tctx.lineTo(x,y);
+    }
+    tctx.strokeStyle = `rgba(111,123,70,${0.16 - i*0.008})`;
+    tctx.lineWidth = dpr;
+    tctx.stroke();
+  }
+}
+/* ---------- 3b · FIELD PARTICLES (spores, fireflies, telemetry ticks) ---------- */
+const P_SAGE  = [183,194,154];   // dust / spores
+const P_OLIVE = [111,123,70];    // deep motes
+const P_AMBER = [201,162,75];    // rare fireflies
+let particles = [];
+const mouseP = {x:-9999, y:-9999};
+if (!isTouch){
+  window.addEventListener('pointermove', e=>{ mouseP.x = e.clientX*dpr; mouseP.y = e.clientY*dpr; });
+  window.addEventListener('pointerleave', ()=>{ mouseP.x = mouseP.y = -9999; });
+}
+function spawnParticle(seedAnywhere){
+  const roll = Math.random();
+  const depth = 0.35 + Math.random()*0.65;              // 0=far, 1=near
+  const type = roll < 0.72 ? 'dust' : roll < 0.92 ? 'fly' : 'tick';
+  return {
+    type, depth,
+    x: Math.random()*tw,
+    y: seedAnywhere ? Math.random()*th : th + 20*dpr,
+    vx: (Math.random()-0.5)*0.06*dpr,
+    vy: -(0.03 + Math.random()*0.09)*dpr*depth,          // near ones rise faster
+    r: (type==='fly' ? 1.6+Math.random()*1.6 : type==='tick' ? 2.6+Math.random()*2 : 0.6+Math.random()*1.4)*dpr*depth,
+    sway: Math.random()*Math.PI*2,
+    swaySpd: 0.004 + Math.random()*0.008,
+    swayAmp: (8+Math.random()*22)*dpr,
+    tw0: Math.random()*Math.PI*2,                        // twinkle phase
+    twSpd: 0.01 + Math.random()*0.03,
+    rot: Math.random()*Math.PI*2,
+    rotSpd: (Math.random()-0.5)*0.006,
+    col: type==='fly' ? P_AMBER : (Math.random()<0.5 ? P_SAGE : P_OLIVE),
+    baseA: type==='fly' ? 0.5 : type==='tick' ? 0.28 : 0.12+Math.random()*0.22
+  };
+}
+function seedParticles(){
+  const target = Math.round(Math.min(110, (innerWidth*innerHeight)/16000));
+  particles = Array.from({length:target}, ()=>spawnParticle(true));
+}
+seedParticles();
+window.addEventListener('resize', seedParticles);
+function drawParticles(){
+  for (let p of particles){
+    // drift
+    p.sway += p.swaySpd;
+    p.x += p.vx + Math.cos(p.sway)*0.12*dpr*p.depth;
+    p.y += p.vy;
+    p.rot += p.rotSpd;
+    // gentle repulsion from the cursor — they notice you
+    const dx = p.x-mouseP.x, dy = p.y-mouseP.y, d2 = dx*dx+dy*dy, rad = 130*dpr;
+    if (d2 < rad*rad){
+      const d = Math.sqrt(d2)||1, f = (1 - d/rad)*0.6*dpr;
+      p.x += (dx/d)*f; p.y += (dy/d)*f;
+    }
+    // recycle: float off the top → respawn at the bottom
+    if (p.y < -30*dpr) Object.assign(p, spawnParticle(false));
+    if (p.x < -30*dpr) p.x = tw+20*dpr;
+    if (p.x > tw+30*dpr) p.x = -20*dpr;
+
+    p.tw0 += p.twSpd;
+    const twinkle = 0.55 + 0.45*Math.sin(p.tw0);
+    const a = p.baseA * twinkle;
+    const [cr,cg,cb] = p.col;
+
+    if (p.type === 'fly'){
+      // amber firefly with a soft halo
+      const g = tctx.createRadialGradient(p.x,p.y,0, p.x,p.y,p.r*6);
+      g.addColorStop(0, `rgba(${cr},${cg},${cb},${a})`);
+      g.addColorStop(0.4, `rgba(${cr},${cg},${cb},${a*0.25})`);
+      g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+      tctx.fillStyle = g;
+      tctx.beginPath(); tctx.arc(p.x,p.y,p.r*6,0,Math.PI*2); tctx.fill();
+      tctx.fillStyle = `rgba(${cr},${cg},${cb},${Math.min(1,a*1.6)})`;
+      tctx.beginPath(); tctx.arc(p.x,p.y,p.r,0,Math.PI*2); tctx.fill();
+    } else if (p.type === 'tick'){
+      // tiny rotating telemetry crosshair
+      tctx.save();
+      tctx.translate(p.x,p.y); tctx.rotate(p.rot);
+      tctx.strokeStyle = `rgba(${cr},${cg},${cb},${a})`;
+      tctx.lineWidth = dpr*0.8;
+      tctx.beginPath();
+      tctx.moveTo(-p.r,0); tctx.lineTo(-p.r*0.35,0);
+      tctx.moveTo(p.r*0.35,0); tctx.lineTo(p.r,0);
+      tctx.moveTo(0,-p.r); tctx.lineTo(0,-p.r*0.35);
+      tctx.moveTo(0,p.r*0.35); tctx.lineTo(0,p.r);
+      tctx.stroke();
+      tctx.restore();
+    } else {
+      // drifting spore
+      tctx.fillStyle = `rgba(${cr},${cg},${cb},${a})`;
+      tctx.beginPath(); tctx.arc(p.x,p.y,p.r,0,Math.PI*2); tctx.fill();
+    }
+  }
+}
+if (reduceMotion){
+  drawTopo();
+  drawParticles();          // one static, calm frame
+} else {
+  (function topoLoop(){
+    phase += 0.0022;
+    drawTopo();
+    drawParticles();
+    requestAnimationFrame(topoLoop);
+  })();
+}
+
+/* ---------- word-split scroll reveals ---------- */
+document.querySelectorAll('[data-split]').forEach(el=>{
+  el.innerHTML = el.innerHTML.split(/(<[^>]+>)/g).map(part=>{
+    if (part.startsWith('<')) return part;
+    return part.split(' ').map(w=>w.trim()? `<span class="w">${w}</span>` : '').join(' ');
+  }).join('');
+});
+const splitObs = new IntersectionObserver(entries=>{
+  entries.forEach(en=>{
+    if (en.isIntersecting){
+      const words = en.target.querySelectorAll('.w');
+      words.forEach((w,i)=> w.style.transitionDelay = (i*55)+'ms');
+      en.target.classList.add('in');
+      splitObs.unobserve(en.target);
+    }
+  });
+},{threshold:0.35});
+document.querySelectorAll('.bigline').forEach(el=>splitObs.observe(el));
+
+/* ---------- 4 · CUSTOM CURSOR ---------- */
+const cursor = document.getElementById('cursor');
+if (!isTouch && !reduceMotion){
+  document.body.classList.add('has-cursor');
+  cursor.style.display = 'block';
+  let cx=0, cy=0, px=0, py=0;
+  window.addEventListener('pointermove', e=>{ cx=e.clientX; cy=e.clientY; }, {passive:true});
+  (function curLoop(){
+    px += (cx-px)*0.35; py += (cy-py)*0.35;
+    cursor.style.transform = `translate(${px}px,${py}px) translate(-50%,-50%)`;
+    requestAnimationFrame(curLoop);
+  })();
+  document.addEventListener('pointerover', e=>{
+    if (e.target.closest('[data-hover],a,button,input')) cursor.classList.add('lock');
+  });
+  document.addEventListener('pointerout', e=>{
+    if (e.target.closest('[data-hover],a,button,input')) cursor.classList.remove('lock');
+  });
+}
+
+/* ---------- 5 · THE CONSOLE (live line to Arnold) ---------- */
+const feed     = document.getElementById('feed');
+const thinking = document.getElementById('thinking');
+const qInput   = document.getElementById('q');
+const sendBtn  = document.getElementById('send');
+const chipsBar = document.getElementById('chips');
+const miniAv   = document.getElementById('miniAvatar');
+
+const ARNOLD_SYSTEM = `You are Arnold — Unit 01, the AI scheduling and dispatch system behind "Ask Arnold." You have the bearing of a seasoned field officer and the heart of a golden retriever. You are talking to a visitor on the Ask Arnold marketing website, who may be a trades business owner deciding whether to sign up, or a curious visitor testing you out.
+
+What Ask Arnold actually is:
+- A monthly subscription service for local trades and service businesses (HVAC, plumbing, electrical, roofing, landscaping, tree service, barbershops, salons, pest control, auto repair, and similar).
+- Each client business gets a dedicated phone number. When their customer texts or calls it, you answer immediately, figure out what service is needed, check the business's real Google Calendar for availability, offer open time slots, book the appointment on confirmation, and send a confirmation text.
+- You also send automated reminders at 24 hours and 2 hours before the appointment, and handle reschedules and no-show recovery.
+- No app for the customer. No new software for the business owner — it plugs into the calendar they already use.
+- The core pitch: the average missed emergency call costs a trades business around $8,400/month in lost jobs. You eliminate that by never missing a call.
+- Pricing: Starter $197/mo (SMS booking, calendar sync, reminders, 1 staff member), Growth $397/mo — most popular (adds AI phone answering, no-show recovery, up to 3 staff), Pro $697/mo (adds website chat widget, multi-location, priority onboarding). Setup fees apply. No long-term contracts.
+- If someone role-plays as a customer texting in (e.g. "my AC broke, do you have anyone today?"), actually demonstrate the booking flow — ask what's needed if unclear, offer a couple of plausible time slots, and confirm like you would for a real client.
+
+Voice rules:
+- Short, precise sentences. Mission-brief cadence. Dry humor, never mean.
+- Genuinely helpful and substantive — the wit rides on top of real answers, never instead of them.
+- Plain language. No corporate filler, no hedging, no emoji.
+- Occasionally end a message with "Over." (not every time).
+- If asked what you are: you're Arnold, the AI behind Ask Arnold's scheduling system. You don't pretend to be human.
+- If you don't know something specific (exact setup fee, a particular integration), say so plainly and suggest they ask on a call.
+- Keep answers under ~130 words unless the question truly needs more.`;
+
+let history = [];
+
+function addMsg(role, text){
+  const div = document.createElement('div');
+  div.className = 'msg ' + role;
+  const who = role==='arnold' ? 'Arnold' : role==='user' ? 'You' : 'System';
+  div.innerHTML = `<div class="who">${who}</div><div class="body"></div>`;
+  div.querySelector('.body').textContent = text;
+  feed.insertBefore(div, thinking);
+  feed.scrollTop = feed.scrollHeight;
+  return div.querySelector('.body');
+}
+
+function typeInto(el, text){
+  if (reduceMotion){ el.textContent = text; feed.scrollTop = feed.scrollHeight; return; }
+  el.textContent = '';
+  let i = 0;
+  const tick = ()=>{
+    if (i >= text.length) return;
+    el.textContent += text.slice(i, i+3);
+    i += 3;
+    feed.scrollTop = feed.scrollHeight;
+    setTimeout(tick, 12);
+  };
+  tick();
+}
+
+async function askArnold(question){
+  if (!question.trim()) return;
+  addMsg('user', question);
+  history.push({role:'user', content: question});
+  if (history.length > 14) history = history.slice(-14);
+
+  qInput.value = '';
+  sendBtn.disabled = true;
+  thinking.classList.add('on');
+  miniAv.classList.add('think');
+  feed.scrollTop = feed.scrollHeight;
+  if (chipsBar) chipsBar.style.display = 'none';
+
+  try{
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        system: ARNOLD_SYSTEM,
+        messages: history
+      })
+    });
+    const data = await res.json();
+    const reply = (data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n').trim()
+      || 'Transmission came back empty. Say again? Over.';
+    history.push({role:'assistant', content: reply});
+    thinking.classList.remove('on');
+    miniAv.classList.remove('think');
+    const body = addMsg('arnold','');
+    typeInto(body, reply);
+  }catch(err){
+    thinking.classList.remove('on');
+    miniAv.classList.remove('think');
+    addMsg('sys','SIGNAL LOST — the line dropped. Check your connection and send again.');
+  }finally{
+    sendBtn.disabled = false;
+    qInput.focus();
+  }
+}
+
+sendBtn.addEventListener('click', ()=>askArnold(qInput.value));
+qInput.addEventListener('keydown', e=>{ if (e.key==='Enter') askArnold(qInput.value); });
+document.querySelectorAll('.chip').forEach(c=>{
+  c.addEventListener('click', ()=>askArnold(c.textContent));
+});
+</script>
+</body>
+</html>

@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>if('scrollRestoration' in history){history.scrollRestoration='manual';}window.scrollTo(0,0);</script>
 <title>ASK ARNOLD — AI Scheduling for Trades &amp; Service Businesses</title>
 <meta name="description" content="Arnold answers every call and text, checks your calendar, and books the job — while you're on the job. AI scheduling for HVAC, plumbing, electrical, and service businesses.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -67,12 +68,36 @@ body.has-cursor,body.has-cursor a,body.has-cursor button,body.has-cursor input{c
 
 /* ---------- ambient background film (the entity watching) ---------- */
 #bgfilm{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;
-  opacity:.22;filter:saturate(.85) contrast(1.08);pointer-events:none}
+  opacity:.42;filter:saturate(.95) contrast(1.1) brightness(1.25);pointer-events:none}
 #bgveil{position:fixed;inset:0;z-index:1;pointer-events:none;
   background:
-    radial-gradient(ellipse 120% 90% at 50% 45%, transparent 30%, rgba(12,13,9,.75) 100%),
-    linear-gradient(to bottom, rgba(12,13,9,.55), rgba(12,13,9,.25) 40%, rgba(12,13,9,.65))}
+    radial-gradient(ellipse 120% 90% at 50% 45%, transparent 45%, rgba(12,13,9,.6) 100%),
+    linear-gradient(to bottom, rgba(12,13,9,.4), rgba(12,13,9,.12) 40%, rgba(12,13,9,.5))}
 @media(prefers-reduced-motion:reduce){#bgfilm{display:none}}
+
+/* ---------- viewfinder HUD (you are looking through Arnold) ---------- */
+#hud{position:fixed;inset:0;z-index:90;pointer-events:none;opacity:0;transition:opacity 1.2s ease .4s;
+  font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;color:var(--sage);text-transform:uppercase}
+body.live #hud{opacity:.55}
+#hud .corner{position:absolute;width:26px;height:26px;border:1px solid rgba(183,194,154,.45)}
+#hud .c-tl{top:14px;left:14px;border-right:none;border-bottom:none}
+#hud .c-tr{top:14px;right:14px;border-left:none;border-bottom:none}
+#hud .c-bl{bottom:14px;left:14px;border-right:none;border-top:none}
+#hud .c-br{bottom:14px;right:14px;border-left:none;border-top:none}
+#hud .tag{position:absolute;white-space:nowrap}
+#hud .t-clock{top:22px;right:52px;text-align:right}
+
+#hud .t-sector{bottom:22px;left:52px}
+#hud .t-tele{bottom:22px;right:52px;text-align:right}
+@media(max-width:760px){#hud{display:none}}
+
+/* ---------- breathing film + signal flicker ---------- */
+#bgfilm{animation:filmbreathe 36s ease-in-out infinite}
+@keyframes filmbreathe{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+#bgfilm.jolt{animation:filmbreathe 36s ease-in-out infinite, signaljolt .18s steps(2) 1}
+@keyframes signaljolt{0%{opacity:.42;transform:scale(1.07) translateX(0)}
+  50%{opacity:.56;transform:scale(1.07) translateX(3px)}
+  100%{opacity:.42;transform:scale(1.07) translateX(0)}}
 
 /* ---------- shared ---------- */
 .wrap{position:relative;z-index:2;max-width:1180px;margin:0 auto;padding:0 clamp(20px,5vw,64px)}
@@ -296,6 +321,15 @@ footer .brandline svg{width:24px;height:24px}
 <div id="bgveil" aria-hidden="true"></div>
 <canvas id="topo" aria-hidden="true"></canvas>
 
+<!-- ============ VIEWFINDER HUD ============ -->
+<div id="hud" aria-hidden="true">
+  <span class="corner c-tl"></span><span class="corner c-tr"></span>
+  <span class="corner c-bl"></span><span class="corner c-br"></span>
+  <span class="tag t-clock" id="hudClock">00:00:00</span>
+  <span class="tag t-sector" id="hudSector">DISPATCH 01 · ON CALL</span>
+  <span class="tag t-tele" id="hudTele">ZONE DFW · 24/7</span>
+</div>
+
 <!-- ============ HEADER ============ -->
 <header>
   <div class="brand">
@@ -305,13 +339,13 @@ footer .brandline svg{width:24px;height:24px}
   <nav>
     <a href="#transmission" data-hover>Briefing</a>
     <a href="#manual" data-hover>Field Manual</a>
-    <a href="#console-sec" class="console-link" data-hover>Live Demo</a>
+    <a href="#console-sec" class="console-link" data-hover>Console</a>
   </nav>
 </header>
 
 <!-- ============ HERO ============ -->
 <section id="hero">
-  <svg id="mark" viewBox="0 0 600 600" role="img" aria-label="Ask Arnold emblem — an olive A with a scheduling bot face" data-hover>
+  <svg id="mark" viewBox="0 0 600 600" role="img" aria-label="Ask Arnold emblem — an olive A with a robot face" data-hover>
     <path class="a-edge" id="aEdge" d="M300 58 L512 528 L422 528 L300 252 L178 528 L88 528 Z"/>
     <path class="a-shape" d="M300 58 L512 528 L422 528 L300 252 L178 528 L88 528 Z"/>
     <g class="head-g" id="headG">
@@ -462,7 +496,7 @@ I answer calls and texts for trades businesses so you don't have to. Ask me how 
       <span><span style="color:var(--bone)">ASK</span> <span style="color:var(--sage)">ARNOLD</span></span>
     </div>
     <div class="stampline">Unit 01 · Field-issued 2026<br>Proven. Precise. Performing. Over.<br>
-<a href="privacy.html" style="color:var(--moss);text-decoration:none">Privacy</a> &middot; <a href="terms.html" style="color:var(--moss);text-decoration:none">Terms</a></div>
+<a href="privacy/" style="color:var(--moss);text-decoration:none">Privacy</a> &middot; <a href="terms/" style="color:var(--moss);text-decoration:none">Terms</a></div>
   </div>
 </footer>
 
@@ -474,17 +508,64 @@ I answer calls and texts for trades businesses so you don't have to. Ask me how 
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = window.matchMedia('(pointer: coarse)').matches;
 
+/* ---------- 0a · VIEWFINDER TELEMETRY ---------- */
+const hudClock  = document.getElementById('hudClock');
+const hudSector = document.getElementById('hudSector');
+const hudTele   = document.getElementById('hudTele');
+if (hudClock){
+  const tick = ()=>{
+    const d = new Date();
+    hudClock.textContent = [d.getHours(),d.getMinutes(),d.getSeconds()]
+      .map(n=>String(n).padStart(2,'0')).join(':');
+  };
+  tick(); setInterval(tick, 1000);
+
+  // sector readout follows your position in the feed
+  const sectors = [
+    ['#hero',        'SECTOR 01 · OVERWATCH'],
+    ['#transmission','SECTOR 02 · TRANSMISSION'],
+    ['#manual',      'SECTOR 03 · FIELD MANUAL'],
+    ['#console-sec', 'SECTOR 04 · THE CONSOLE']
+  ];
+  const secObs = new IntersectionObserver(ents=>{
+    ents.forEach(en=>{
+      if (en.isIntersecting){
+        const hit = sectors.find(s=>en.target.matches(s[0]));
+        if (hit) hudSector.textContent = hit[1];
+      }
+    });
+  }, {threshold:0.35});
+  sectors.forEach(s=>{ const el=document.querySelector(s[0]); if(el) secObs.observe(el); });
+
+  // heading drifts as Arnold idly pans; altitude wobbles with scroll
+  let hdg = 47.0;
+  setInterval(()=>{
+    hdg = (hdg + 0.4 + Math.sin(Date.now()/9000)*0.3 + 360) % 360;
+    const alt = 412 + Math.round(window.scrollY/40);
+    hudTele.textContent = `ALT ${alt}M · HDG ${String(Math.round(hdg)).padStart(3,'0')}°`;
+  }, 500);
+}
+
 /* ---------- 0 · AMBIENT FILM (the entity in the background) ---------- */
 const bgfilm = document.getElementById('bgfilm');
 if (reduceMotion){
   bgfilm.remove();
 } else {
+  bgfilm.addEventListener('error', ()=>{ bgfilm.style.display='none'; }); // fails gracefully if file missing
   bgfilm.playbackRate = 0.55;                 // slow, hypnotic drift
   const tryPlay = ()=>{ const p = bgfilm.play(); if (p && p.catch) p.catch(()=>{}); };
   tryPlay();
   // some browsers only allow playback after first interaction — retry then
   document.addEventListener('pointerdown', tryPlay, {once:true});
   document.addEventListener('visibilitychange', ()=>{ if (!document.hidden) tryPlay(); });
+  // every so often the signal jolts — just enough to remind you it's a feed
+  (function scheduleJolt(){
+    setTimeout(()=>{
+      bgfilm.classList.add('jolt');
+      setTimeout(()=>bgfilm.classList.remove('jolt'), 220);
+      scheduleJolt();
+    }, 14000 + Math.random()*18000);
+  })();
 }
 
 /* ---------- 1 · BOOT SEQUENCE ---------- */
@@ -505,6 +586,7 @@ function finishBoot(){
   bootDone = true;
   bootEl.classList.add('done');
   setTimeout(()=>bootEl.remove(), 700);
+  document.body.classList.add('live');
   wakeHero();
 }
 function runBoot(){
@@ -919,6 +1001,64 @@ qInput.addEventListener('keydown', e=>{ if (e.key==='Enter') askArnold(qInput.va
 document.querySelectorAll('.chip').forEach(c=>{
   c.addEventListener('click', ()=>askArnold(c.textContent));
 });
+</script>
+
+<script>
+/* ============ BOOT TELETYPE AUDIO ============ */
+(function(){
+  let ctx = null;
+  function ensureCtx(){
+    if (ctx) return true;
+    try{
+      ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const g = ctx.createGain(); g.gain.value = 0.9;
+      g.connect(ctx.destination);
+      ctx._out = g;
+    }catch(e){ return false; }
+    return true;
+  }
+  // browsers only allow audio after a user gesture — arm on the first one
+  ['pointerdown','keydown','touchstart'].forEach(ev=>
+    document.addEventListener(ev, ()=>{ if (ensureCtx() && ctx.state==='suspended') ctx.resume(); }, {passive:true}));
+
+  function key(vol, pitch){
+    if (!ctx || ctx.state!=='running') return;
+    const t = ctx.currentTime;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square';
+    o.frequency.value = pitch;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t+0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+0.028);
+    o.connect(g); g.connect(ctx._out);
+    o.start(t); o.stop(t+0.035);
+    // mechanical noise transient
+    const b = ctx.createBuffer(1, ctx.sampleRate*0.015, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const n = ctx.createBufferSource(), ng = ctx.createGain(), hp = ctx.createBiquadFilter();
+    n.buffer = b; hp.type='highpass'; hp.frequency.value=3200;
+    ng.gain.setValueAtTime(0.0001,t);
+    ng.gain.exponentialRampToValueAtTime(vol*1.2, t+0.003);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t+0.015);
+    n.connect(hp); hp.connect(ng); ng.connect(ctx._out);
+    n.start(t);
+  }
+
+  // each boot line fires a quick burst of keystrokes — teletype printing
+  function burst(){
+    const strokes = 4 + (Math.random()*4|0);
+    for (let i=0;i<strokes;i++){
+      setTimeout(()=>key(0.04, 1500+Math.random()*900), i*(26+Math.random()*22));
+    }
+  }
+  const blog = document.getElementById('bootlog');
+  if (blog) new MutationObserver(burst).observe(blog, {childList:true});
+})();
+
+/* force top-of-page on every load, including back/forward cache restores */
+window.addEventListener('load', ()=> window.scrollTo(0,0));
+window.addEventListener('pageshow', ()=> window.scrollTo(0,0));
 </script>
 </body>
 </html>
